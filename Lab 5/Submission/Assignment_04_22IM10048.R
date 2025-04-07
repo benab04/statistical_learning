@@ -1,0 +1,163 @@
+library(boot)     
+library(ggplot2) 
+library(reshape2)
+set.seed(123)
+
+data <- read.csv("C:/Users/benab/OneDrive - iitkgp.ac.in/Desktop/Sem 6/SL Lab/Lab 2/manufacturing.csv", header = TRUE, stringsAsFactors = FALSE)
+
+head(data, 10)
+dim(data)
+
+names(data) <- c("Temperature", "Pressure", "Temp_x_Press", 
+                 "MatFusion", "MatTransform", "Quality")
+
+data_sample <- data
+
+
+degrees <- 1:5
+cv.error.loocv <- rep(0, length(degrees))
+cv.error.5fold <- rep(0, length(degrees))
+cv.error.10fold <- rep(0, length(degrees))
+
+for (i in degrees) {
+  start_time <- Sys.time()
+  cat("Starting polynomial degree:", i, "\n")
+  
+  glm.fit <- glm(Quality ~ poly(Temperature, i, raw = TRUE), data = data_sample)
+  
+  # LOOCV
+  cv.loocv <- cv.glm(data_sample, glm.fit, K = nrow(data_sample))
+  cv.error.loocv[i] <- cv.loocv$delta[1]
+  
+  # 5-fold CV
+  cv.5 <- cv.glm(data_sample, glm.fit, K = 5)
+  cv.error.5fold[i] <- cv.5$delta[1]
+  
+  # 10-fold CV
+  cv.10 <- cv.glm(data_sample, glm.fit, K = 10)
+  cv.error.10fold[i] <- cv.10$delta[1]
+  
+  end_time <- Sys.time()
+  cat("Finished degree:", i, "in", round(difftime(end_time, start_time, units = "secs"), 2), "seconds\n")
+}
+
+poly.cv.results <- data.frame(
+  Degree = degrees,
+  LOOCV_MSE = cv.error.loocv,
+  CV5_MSE = cv.error.5fold,
+  CV10_MSE = cv.error.10fold
+)
+print("CV Errors for Polynomial Models (Quality ~ Temperature):")
+print(poly.cv.results)
+
+plot(degrees, cv.error.loocv, type = "o", col = "blue", pch = 16,
+     xlab = "Polynomial Degree", ylab = "MSE",
+     main = "CV Errors for Polynomial Models (Quality ~ Temperature)")
+lines(degrees, cv.error.5fold, type = "o", col = "red", pch = 17)
+lines(degrees, cv.error.10fold, type = "o", col = "darkgreen", pch = 18)
+legend("topright", legend = c("LOOCV", "5-Fold", "10-Fold"),
+       col = c("blue", "red", "darkgreen"), pch = c(16,17,18), lty = 1)
+
+
+predictors <- c("Temperature", "Pressure", "Temp_x_Press", "MatFusion", "MatTransform")
+model.formulas <- list()
+
+# Generate all possible predictor combinations
+for (i in 1:length(predictors)) {
+  cmb <- combn(predictors, i, simplify = FALSE)
+  for (combo in cmb) {
+    formula_str <- paste("Quality ~", paste(combo, collapse = " + "))
+    formula_obj <- as.formula(formula_str)
+    model.formulas[[formula_str]] <- formula_obj
+  }
+}
+
+n.models <- length(model.formulas)
+
+cv.error.loocv <- rep(0, n.models)
+cv.error.5fold <- rep(0, n.models)
+cv.error.10fold <- rep(0, n.models)
+
+model.names <- names(model.formulas)
+
+for (i in 1:n.models) {
+  start_time <- Sys.time()
+  cat("Starting model", i, ":", model.names[i], "\n")
+
+  glm.fit <- glm(model.formulas[[i]], data = data_sample)
+  
+  # LOOCV 
+  cv.loocv <- cv.glm(data_sample, glm.fit)
+  cv.error.loocv[i] <- cv.loocv$delta[1]
+  
+  # 5-fold CV
+  cv.5 <- cv.glm(data_sample, glm.fit, K = 5)
+  cv.error.5fold[i] <- cv.5$delta[1]
+  
+  # 10-fold CV
+  cv.10 <- cv.glm(data_sample, glm.fit, K = 10)
+  cv.error.10fold[i] <- cv.10$delta[1]
+  
+  end_time <- Sys.time()
+  duration <- round(as.numeric(difftime(end_time, start_time, units = "secs")), 2)
+  cat("Finished model", i, "in", duration, "seconds. LOOCV MSE =", cv.error.loocv[i], 
+      "5-fold MSE =", cv.error.5fold[i], "10-fold MSE =", cv.error.10fold[i], "\n\n")
+}
+
+combination.cv.results <- data.frame(
+  Model = model.names,
+  LOOCV_MSE = cv.error.loocv,
+  CV5_MSE = cv.error.5fold,
+  CV10_MSE = cv.error.10fold
+)
+
+print("Cross-Validation Errors for Different Predictor Combinations:")
+print(combination.cv.results)
+
+min_mse_value <- min(combination.cv.results[, 2:4])
+min_mse_row <- combination.cv.results[apply(combination.cv.results[, 2:4], 1, min) == min_mse_value, ]
+print(paste("Minimum MSE:", min_mse_value))
+print("Row(s) with the minimum MSE:")
+print(min_mse_row)
+
+cv.melted <- melt(combination.cv.results, id.vars = "Model", variable.name = "CV_Type", value.name = "MSE")
+cv.melted$Model <- factor(cv.melted$Model, levels = combination.cv.results$Model)
+ggplot(cv.melted, aes(x = Model, y = MSE, fill = CV_Type)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Cross-Validation MSE for Different Predictor Combinations",
+       x = "Predictor Combination",
+       y = "MSE") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+set.seed(789)
+pop_sample <- rnorm(50, mean = 50, sd = sqrt(2))
+head(pop_sample)
+
+n_boot <- 100
+boot_sample_size <- 20
+
+boot.means <- rep(0, n_boot)
+boot.vars  <- rep(0, n_boot)
+
+set.seed(456)
+
+for (i in 1:n_boot) {
+  boot.sample <- sample(pop_sample, size = boot_sample_size, replace = TRUE)
+  boot.means[i] <- mean(boot.sample)
+  boot.vars[i]  <- var(boot.sample)
+}
+
+boot.mean.estimate <- mean(boot.means)
+boot.var.estimate  <- mean(boot.vars)
+
+cat("Bootstrap Estimation Results (", n_boot, "samples of size", boot_sample_size, "):\n")
+cat("Estimated Mean:", boot.mean.estimate, "\n")
+cat("Estimated Variance:", boot.var.estimate, "\n")
+
+par(mfrow = c(1,2))
+hist(boot.means, col = "lightblue", main = "Bootstrap Distribution of Mean",
+     xlab = "Mean", breaks = 10)
+hist(boot.vars, col = "lightgreen", main = "Bootstrap Distribution of Variance",
+     xlab = "Variance", breaks = 10)
+par(mfrow = c(1,1))

@@ -1,0 +1,80 @@
+Below is a summary of common causes and several troubleshooting steps to help you resolve the issue of missing graphs or output in your knitted HTML document.
+
+## Check That All Code and Data Are Included
+
+-  When knitting, R Markdown runs in a new clean session. This means that any objects, libraries, or data loaded only in your interactive session will not be available during knitting. Make sure that you load all necessary packages (using library calls) and read in your data (with the correct relative paths) within the R Markdown file itself[8][5].
+
+## Verify Chunk Options
+
+-  Ensure that your code chunks do not accidentally hide results. For example, check that global or chunk-specific options do not include settings such as `eval=FALSE`, `include=FALSE`, or `results='hide'`. Even if you want to hide the code (using `echo=FALSE`), you should leave evaluation and output inclusion enabled[12][13].
+
+## Print Your Plots Explicitly
+
+-  If you assign a plot to a variable in a chunk, be sure to either print it explicitly (using `print(plot_object)`) or have the plot call as the last expression in the chunk. When a plot isn’t printed, it might appear blank in the final knitted document[8][4].
+
+## Test with a Simple Plot
+
+-  Insert a simple test chunk—for example:
+  
+  ```{r simple-plot}
+  plot(cars)
+  ```
+
+  If this plot appears in your knitted document, the issue is likely with your other chunks rather than with your setup in general[3][8].
+
+## Check Output Format
+
+-  If you are knitting for purposes other than local HTML viewing (for instance, for GitHub display), consider switching the YAML output to use `rmarkdown::github_document` instead of `html_document` so that images and output are properly embedded[4].
+
+## Verify Your Working Directory
+
+-  Double-check that file paths to data (or any external resources) are correctly specified relative to the location of your R Markdown file. Misplaced files can prevent your code from running and halt output generation[8][34].
+
+By following these pointers—ensuring that all necessary code is contained within your file, that chunk options are set to evaluate and display output, and that plots are either printed or the chunk’s last expression—your knitted HTML should display the expected graphs and outputs properly.
+
+These troubleshooting steps have helped others resolve similar issues with missing output in their final HTML documents.
+
+Citations:
+[1] https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/51839147/3c0a504d-216c-47c0-9860-f558fa0d7a2d/paste.txt
+[2] https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/51839147/cdcc5362-a847-45d3-8e2c-673b26c3481f/paste-2.txt
+[3] https://forum.posit.co/t/r-markdown-not-showing-my-graph/161626
+[4] https://www.reddit.com/r/RStudio/comments/gtw1s7/r_markdown_file_isnt_diplaying_outputs_plots_etc/
+[5] https://stackoverflow.com/questions/68277358/r-markdown-wont-knit-even-though-my-code-chunks-work
+[6] https://www.neonscience.org/resources/learning-hub/tutorials/rmd-use-knitr
+[7] https://dabblingwithdata.amedcalf.com/2023/04/10/tips-and-tricks-for-knitting-r-markdown/
+[8] https://www.reddit.com/r/RStudio/comments/a5p4pa/i_want_to_display_the_ggplots_when_i_knit_the/
+[9] https://github.com/rstudio/rmarkdown/issues/2344
+[10] https://forum.posit.co/t/problems-with-knitting/128837
+[11] https://rmd4sci.njtierney.com/common-problems-with-rmarkdown-and-some-solutions
+[12] https://stackoverflow.com/questions/51662416/rmarkdown-to-knit-html-graphs-not-showing
+[13] https://forum.posit.co/t/rmarkdown-does-not-show-outputs/126715
+[14] https://www.reddit.com/r/RStudio/comments/148efwz/help_knitting_doesnt_work/
+[15] https://forum.posit.co/t/how-to-properly-fit-a-graph-in-rmarkdown-editor-and-knitted-html-document/82909
+[16] https://stackoverflow.com/questions/66966068/rmarkdown-plot-doesnt-show-in-final-knit-output
+[17] https://github.com/rstudio/rstudio/issues/12068
+[18] https://github.com/rstudio/rmarkdown/issues/1514
+[19] https://github.com/rstudio/rstudio/issues/13735
+[20] https://youtrack.jetbrains.com/issue/R-1515/R-markdown-knit-problem
+[21] https://rmarkdown.rstudio.com/authoring_quick_tour.html
+[22] https://www.reddit.com/r/Rlanguage/comments/st6nlu/how_i_do_stop_these_output_popups_in_r_markdown_i/
+[23] https://forum.posit.co/t/problem-knitting-rmarkdown/110978
+[24] https://r4ds.had.co.nz/r-markdown.html
+[25] https://github.com/rstudio/rmarkdown/issues/2344
+[26] https://www.datacamp.com/tutorial/r-markdown-tutorial
+[27] https://github.com/rstudio/bookdown/issues/1152
+[28] https://kbroman.org/knitr_knutshell/pages/Rmarkdown.html
+[29] https://stats.oarc.ucla.edu/stat/data/rmarkdown/rmarkdown_seminar_flat.html
+[30] https://rpubs.com/melindahiggins2000/knitparams1
+[31] https://www.reddit.com/r/Rlanguage/comments/1266wbh/rmarkdown_fails_to_knit_unicode_character_u001b/
+[32] https://bookdown.org/yihui/rmarkdown/params-knit.html
+[33] https://dabblingwithdata.amedcalf.com/2023/04/10/tips-and-tricks-for-knitting-r-markdown/
+[34] https://faculty.washington.edu/otoomet/machinelearning-R/r-markdown-literal-programming-with-r.html
+[35] https://www.neonscience.org/resources/learning-hub/tutorials/rmd-use-knitr
+[36] https://bookdown.org/yihui/bookdown/new-session.html
+[37] https://ourcodingclub.github.io/tutorials/rmarkdown/
+[38] https://www.reddit.com/r/RStudio/comments/112e8ha/im_trying_r_markdown_for_the_first_time_and/
+[39] https://stackoverflow.com/questions/33983298/run-an-r-markdown-check-rmd-and-an-r-knitr-test-rnw-file-together
+[40] https://stackoverflow.com/questions/72179131/cant-knit-rmarkdown
+
+---
+Answer from Perplexity: pplx.ai/share

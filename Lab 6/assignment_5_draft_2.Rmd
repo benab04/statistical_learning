@@ -1,0 +1,196 @@
+It's great to hear that your plots and outputs are now displaying correctly in the final HTML document. This means that the adjustments made—using the proper `{r}` code chunk annotations, reading the data with the correct function (and file path), and disabling the ggpairs progress bar—have effectively resolved the previous issues.
+
+For clarity, here is a summary of the final, corrected R Markdown file:
+
+---
+
+```yaml
+---
+title: "Assignment 5"
+author: "Ben Abraham Biju"
+date: "2025-02-11"
+output: html_document
+---
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      fig.width = 6, fig.height = 4)
+```
+
+## Introduction
+
+This document demonstrates an analysis workflow on the “Cellphone” dataset. We load the data, display its first few rows, perform exploratory visualizations, and then conduct several modeling exercises: best subset selection with Cp plots, principal component regression using 5 and 7 components, and Lasso regression for variable selection and regularization.
+
+## 1. Load the Dataset and Display the First Few Rows
+
+```{r load-data}
+# If the file is Excel (.xlsx), use the readxl package:
+library(readxl)
+# Adjust the file path on your system:
+cellphone <- read_excel("C:/Users/benab/OneDrive - iitkgp.ac.in/Desktop/Sem 6/SL Lab/Lab 6/Phone-price/Cellphone.xlsx")
+# If your file is indeed a CSV file, use:
+# cellphone <- read.csv("Cellphone.csv")
+
+# Display the first few rows:
+head(cellphone)
+```
+
+*Explanation:*  
+This chunk loads the dataset from the specified path and displays the initial rows.
+
+## 2. Preliminary Analysis and Exploratory Visualizations
+
+```{r load-libraries}
+library(ggplot2)
+library(GGally)
+```
+
+```{r prepare-data}
+# Exclude the Product_id variable if it exists:
+df <- if ("Product_id" %in% colnames(cellphone)) {
+  cellphone[, !(names(cellphone) %in% "Product_id")]
+} else {
+  cellphone
+}
+head(df)
+```
+
+```{r pairs-plot}
+# Disable ggpairs progress bars to avoid internal errors during knitting
+options(ggmatrix.progress.bar = FALSE)
+# Create a scatterplot matrix to explore pairwise relationships
+ggpairs_plot <- ggpairs(df, title = "Scatterplot Matrix of Cellphone Data")
+ggpairs_plot
+```
+
+```{r box-plot}
+# If a categorical variable "brand" exists, create a box plot of Price by Brand.
+if ("brand" %in% colnames(cellphone)) {
+  print(
+    ggplot(cellphone, aes(x = factor(brand), y = Price)) +
+      geom_boxplot(fill = "lightblue") +
+      labs(title = "Boxplot: Price vs. Brand", x = "Brand", y = "Price")
+  )
+}
+```
+
+*Explanation:*  
+The pairs plot (via `ggpairs()`) visualizes bivariate relationships, and if a categorical variable like "brand" is available, the box plot shows how Price varies across brands.
+
+## 3. Best Subset Selection
+
+```{r best-subset}
+library(leaps)
+# Prepare the dataset by removing Product_id (if present):
+data_bs <- if ("Product_id" %in% names(cellphone)) {
+  cellphone[, !(names(cellphone) %in% "Product_id")]
+} else {
+  cellphone
+}
+# Perform best subset selection for predicting Price:
+best_fit <- regsubsets(Price ~ ., data = data_bs, nvmax = ncol(data_bs) - 1)
+best_summary <- summary(best_fit)
+names(best_summary)
+```
+
+*Explanation:*  
+This step uses the leaps package to perform best subset regression, identifying the best combination of predictors for the response variable Price.
+
+## 4. Plotting Cp Against the Number of Variables
+
+```{r cp-plot}
+# Extract Cp values and create a Cp versus number of predictors plot:
+cp_values <- best_summary$cp
+num_vars <- 1:length(cp_values)
+plot(num_vars, cp_values, type = "b", pch = 20, 
+     xlab = "Number of Predictors", ylab = "Cp",
+     main = "Cp versus Number of Predictors")
+min_cp_index <- which.min(cp_values)
+points(num_vars[min_cp_index], cp_values[min_cp_index], col = "red", pch = 19, cex = 2)
+text(num_vars[min_cp_index], cp_values[min_cp_index], 
+     labels = paste("Lowest Cp with", num_vars[min_cp_index], "predictors"),
+     pos = 4, col = "red")
+min_cp_index  # Outputs the number of predictors in the optimal model.
+```
+
+*Explanation:*  
+This visualization shows how Mallows’ Cp varies with model size, with a red point denoting the optimal model.
+
+## 5. Plotting the Best Subset Selection Output
+
+```{r best-subset-plot}
+plot(best_fit, scale = "Cp", main = "Best Subset Selection - Model Selection Plot")
+```
+
+*Explanation:*  
+The built-in plot method summarizes the best subset selection models across different sizes, displaying their Cp values.
+
+## 6. Principal Component Regression (PCR)
+
+```{r pcr-model}
+library(pls)
+set.seed(123)
+# Prepare the dataset for PCR (remove Product_id if it exists):
+data_pcr <- if ("Product_id" %in% names(cellphone)) {
+  cellphone[, !(names(cellphone) %in% "Product_id")]
+} else {
+  cellphone
+}
+# Fit the PCR model with cross-validation:
+pcr_fit <- pcr(Price ~ ., data = data_pcr, scale = TRUE, validation = "CV")
+summary(pcr_fit)
+```
+
+```{r explained-variance}
+# Extract the percentage variance explained by each principal component:
+explained_var <- explvar(pcr_fit)
+cum_explained_var <- cumsum(explained_var)
+# Variability explained by the first 5 and first 7 components:
+variance_5 <- cum_explained_var[5]
+variance_7 <- cum_explained_var[7]
+variance_5  # Variability explained by 5 components
+variance_7  # Variability explained by 7 components
+```
+
+*Explanation:*  
+PCR reduces the data dimensionality. Here, the cumulative explained variance by the first 5 and 7 components is computed.
+
+## 7. Lasso Regression
+
+```{r lasso-regression}
+library(glmnet)
+# Prepare data for Lasso regression (remove Product_id if available):
+data_lasso <- if ("Product_id" %in% names(cellphone)) {
+  cellphone[, !(names(cellphone) %in% "Product_id")]
+} else {
+  cellphone
+}
+# Create model matrix and response vector:
+x <- model.matrix(Price ~ ., data = data_lasso)[, -1]
+y <- data_lasso$Price
+# Perform cross-validated Lasso to select the optimal lambda:
+set.seed(123)
+cv_lasso <- cv.glmnet(x, y, alpha = 1)
+best_lambda <- cv_lasso$lambda.min
+plot(cv_lasso, main = "Cross-Validated Lasso Regression")
+# Fit the final Lasso model and display coefficients:
+lasso_fit <- glmnet(x, y, alpha = 1, lambda = best_lambda)
+coef(lasso_fit)
+```
+
+*Explanation:*  
+The Lasso regression uses an $$ \ell_1 $$-penalty to perform variable selection. The optimal lambda is chosen via cross-validation, and the resulting model coefficients (with some possibly set to zero) are examined.
+
+## Conclusion
+
+This revised R Markdown file includes all the necessary fixes—correct `{r}` chunk headers, proper data reading, and explicit plotting instructions—to ensure that graphs and outputs are displayed inline in the final HTML report. Since you mentioned that things are now being plotted fine, it confirms that the adjustments were successful.
+
+If everything is now working as intended, you can move on to further analyses or report generation with confidence.
+
+Citations:
+[1] https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/51839147/3c0a504d-216c-47c0-9860-f558fa0d7a2d/paste.txt
+[2] https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/51839147/cdcc5362-a847-45d3-8e2c-673b26c3481f/paste-2.txt
+
+---
+Answer from Perplexity: pplx.ai/share

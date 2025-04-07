@@ -1,0 +1,184 @@
+---
+title: "Assignment 5"
+author: "Ben Abraham Biju"
+date: "2025-03-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## 1. Load the Dataset and Display the First Few Rows
+```{r }
+library(readxl)
+
+cellphone <- read_excel("C:/Users/benab/OneDrive - iitkgp.ac.in/Desktop/Sem 6/SL Lab/Lab 6/Phone-price/Cellphone.xlsx")
+
+head(cellphone)
+```
+
+## 2. Preliminary Analysis and Exploratory Visualizations
+
+```{r load-libraries}
+library(ggplot2)
+library(GGally)
+```
+
+Remove the product id from the dataset
+```{r prepare-data}
+# Exclude the Product_id variable if it exists:
+df <- if ("Product_id" %in% colnames(cellphone)) {
+  cellphone[, !(names(cellphone) %in% "Product_id")]
+} else {
+  cellphone
+}
+head(df)
+```
+
+Creating a pairwise scatter plot to see the interrelations among variables
+```{r pairs-plot}
+options(repr.plot.width = 40, repr.plot.height = 40)  
+
+# Create a scatter plot matrix
+ggpairs_plot <- ggpairs(df, 
+                        title = "Scatterplot Matrix of Cellphone Data",
+                        progress = TRUE,  
+                        upper = list(continuous = wrap("cor", size = 2)), 
+                        lower = list(continuous = wrap("points", alpha = 0.5, size = 0.7)),  
+                        diag = list(continuous = wrap("densityDiag", alpha = 0.6))) + 
+  theme_minimal(base_size = 9) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1), 
+        plot.title = element_text(hjust = 0.5, size = 16)) 
+
+ggpairs_plot
+```
+
+
+## 3. Best Subset Selection
+
+```{r best-subset}
+library(leaps)
+# Prepare the dataset by removing Product_id (if present):
+data_bs <- if ("Product_id" %in% names(cellphone)) {
+  cellphone[, !(names(cellphone) %in% "Product_id")]
+} else {
+  cellphone
+}
+# Perform best subset selection for predicting Price:
+best_fit <- regsubsets(Price ~ ., data = data_bs, nvmax = ncol(data_bs) - 1)
+best_summary <- summary(best_fit)
+
+adj_r2 <- summary(best_fit)$adjr2
+best_model_adj_r2 <- which.max(adj_r2)
+bic_values <- summary(best_fit)$bic
+best_model_bic <- which.min(bic_values)
+
+selected_vars <- summary(best_fit)$which[best_model_adj_r2, ]
+selected_vars <- names(selected_vars[selected_vars == TRUE])
+cat("Best model (by Adjusted R^2) has", best_model_adj_r2, "predictors\n")
+cat("Best model predictors (by Adjusted R^2):", paste(selected_vars, collapse=", "), "\n")
+```
+
+
+## 4. Create a plot with Cp on y-axis and number of variables on the x-axis. Determine the lowest Cp and report how many variables are included in the lowest Cp model
+
+```{r}
+cp_values <- best_summary$cp
+num_variables <- apply(best_summary$which, 1, sum) # Count number of selected variables for each model
+
+# Find the model with the lowest Cp
+best_cp_index <- which.min(cp_values)
+best_num_variables <- num_variables[best_cp_index]
+
+# Plot Cp vs. number of variables
+plot(num_variables, cp_values, type = "b", pch = 19, col = "blue",
+     xlab = "Number of Variables", ylab = "Mallows' Cp",
+     main = "Mallows' Cp vs. Number of Variables")
+points(best_num_variables, cp_values[best_cp_index], col = "red", pch = 19, cex = 2) # Highlight best model
+
+# Print results
+cat("Lowest Cp Model includes", best_num_variables, "variables with Cp =", cp_values[best_cp_index], "\n")
+```
+
+## 5.	Plot the best subset selection output and explain the plot. 
+```{r}
+par(mfrow = c(1, 1))  # Reset plotting area
+plot(best_fit, scale = "Cp")  # Mallows' Cp as selection criteria
+
+```
+
+
+* This plot visualizes the model selection process using Mallows' Cp criterion, showing how different predictor variables contribute to models of varying complexity. The y-axis represents the Cp values, with lower values indicating better models that balance simplicity and accuracy. Each row corresponds to a specific model, and the black tiles indicate which predictors are included in that model, while white tiles indicate exclusion. 
+
+* The x-axis lists the predictor variables, such as **Sale, weight, ppi, ram,** etc. As we move down the plot (toward higher Cp values), more predictors are included, representing increasingly complex models. 
+
+* Key variables like **ram** and **ppi** appear in most models with low Cp values, suggesting they are significant predictors, while others like **Front_Cam** and **thickness** are included only in more complex models with higher Cp values, indicating they have less explanatory power. This plot helps identify the optimal subset of predictors for a regression model by balancing predictive performance and simplicity.
+
+## 6.	Use principal component regression on the same dataset with 5 components and 7 components. How much variability is explained by these two models? 
+```{r}
+library(pls)
+set.seed(123)
+data_pcr <- if ("Product_id" %in% names(cellphone)) {
+  cellphone[, !(names(cellphone) %in% "Product_id")]
+} else {
+  cellphone
+}
+# Fit the PCR model with cross-validation
+pcr_fit <- pcr(Price ~ ., data = data_pcr, scale = TRUE, validation = "CV")
+summary(pcr_fit)
+```
+
+PCR reduces the data dimensionality. Here, the cumulative explained variance by the first 5 and 7 components is computed.
+
+* The first 5 principal components together explain 90.02% of the total variability in the dataset, meaning they capture most of the important information in the original data.
+
+* Adding two more components (for a total of 7) increases the explained variance to 95.59%, showing diminishing returns as more components are included.
+
+
+```{r explained-variance}
+# Extract the percentage variance explained by each principal component:
+explained_var <- explvar(pcr_fit)
+cum_explained_var <- cumsum(explained_var)
+# Variability explained by the first 5 and first 7 components:
+variance_5 <- cum_explained_var[5]
+variance_7 <- cum_explained_var[7]
+variance_5  # Variability explained by 5 components
+variance_7  # Variability explained by 7 components
+```
+
+## 7.	Perform Lasso on the model and explain the results. 
+```{r lasso-regression}
+library(glmnet)
+
+if ("Product_id" %in% names(cellphone)) {
+  data_lasso <- cellphone[, !(names(cellphone) %in% "Product_id")]
+} else {
+  data_lasso <- cellphone
+}
+
+x <- model.matrix(Price ~ ., data = data_lasso)[, -1]
+y <- data_lasso$Price
+
+set.seed(123)
+cv_lasso <- cv.glmnet(x, y, alpha = 1)  
+best_lambda <- cv_lasso$lambda.min  
+
+plot(cv_lasso, col.main = "blue", cex.main = 1)
+grid()
+abline(v = log(best_lambda), col = "red", lty = 2, lwd = 2)  # Marking best λ
+text(log(best_lambda), min(cv_lasso$cvm), pos = 4, col = "red")
+
+lasso_fit <- glmnet(x, y, alpha = 1, lambda = best_lambda)
+lasso_coefs <- coef(lasso_fit)
+
+# Print Selected Coefficients
+print(lasso_coefs)
+```
+* This plot shows the relationship between the **regularization parameter** (λ) and
+**mean squared error** (MSE).
+* As λ **increases**, more coefficients **shrink to zero**, reducing the number of
+selected variables (displayed at the top).
+* The **optimal λ**, marked by **vertical dotted lines**, balances model complexity and
+prediction error.
+* This results in a **subset of important predictors**, reducing overfitting while
+maintaining predictive accuracy

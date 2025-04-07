@@ -1,0 +1,430 @@
+---
+title: "Assignment 6 - Non Linear Regression"
+author: "Ben Abraham Biju"
+date: "2025-03-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Loading all libraries
+
+
+```{r include=TRUE}
+library(ggplot2)
+library(GGally)
+library(splines)
+library(mgcv)
+library(tidyr)
+library(dplyr)
+library(gridExtra)
+```
+
+The following dataset has been used to perform Non Linear Regression: Poverty data (<https://online.stat.psu.edu/stat501/lesson/1>)
+
+The dataset is saved as a `.txt` file and loaded as a Dataframe
+
+```{r }
+file_path="C:/Users/benab/OneDrive - iitkgp.ac.in/Desktop/Sem 6/SL Lab/Lab 7/STAT501_Lesson01/STAT501_Lesson01/poverty.txt"
+poverty_df  <- read.table(file_path, header = TRUE, sep = "\t")
+
+```
+
+Displaying the first few rows of the dataset
+
+```{r}
+head(poverty_df )
+
+```
+
+```{r}
+str(poverty_df)
+summary(poverty_df)
+sum(is.na(poverty_df)) # Checking for NaN values in the dataset
+```
+
+Since `Location` is of character type, it is encoded as a numerical value.
+```{r}
+poverty_df$Location <- as.factor(poverty_df$Location)
+
+```
+
+### Scatter plot
+The scatter plot of all predictor variables is shown below
+
+```{r}
+ggpairs(poverty_df[, 2:6])
+
+```
+
+The relationship of predictor variables with the response variable, `PovPct` is more clearly visualized with these graphs
+
+```{r}
+p1 <- ggplot(poverty_df, aes(x = TeenBrth, y = PovPct)) +
+  geom_point() +
+  geom_smooth(method = "loess") +
+  labs(title = "Teen Birth Rate vs Poverty Percentage",
+       x = "Teen Birth Rate", y = "Poverty Percentage")
+
+p2 <- ggplot(poverty_df, aes(x = ViolCrime, y = PovPct)) +
+  geom_point() +
+  geom_smooth(method = "loess") +
+  labs(title = "Violent Crime Rate vs Poverty Percentage",
+       x = "Violent Crime Rate", y = "Poverty Percentage")
+
+p3 <- ggplot(poverty_df, aes(x = Brth15to17, y = PovPct)) +
+  geom_point() +
+  geom_smooth(method = "loess") +
+  labs(title = "Birth Rate (15-17) vs Poverty Percentage",
+       x = "Birth Rate (15-17)", y = "Poverty Percentage")
+
+p4 <- ggplot(poverty_df, aes(x = Brth18to19, y = PovPct)) +
+  geom_point() +
+  geom_smooth(method = "loess") +
+  labs(title = "Birth Rate (18-19) vs Poverty Percentage",
+       x = "Birth Rate (18-19)", y = "Poverty Percentage")
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+### Box Plots
+The box plots of all variables is given below.
+```{r}
+boxplot_data <- poverty_df %>%
+  pivot_longer(cols = -Location, names_to = "Variable", values_to = "Value")
+
+ggplot(boxplot_data, aes(x = Variable, y = Value, fill = Variable)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(x = "Variable", y = "Value", title = "Boxplot of Variables") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  
+
+
+```
+
+### Fitting a linear model
+```{r}
+lm_model <- lm(PovPct ~ TeenBrth + ViolCrime + Brth15to17 + Brth18to19, data = poverty_df)
+summary(lm_model)
+```
+The R squared value of the linear model shows a decent fit, with the F statistic showing high significance of the predictor variables.
+
+
+### Fitting a non-linear model
+A pure polynomial function of degree 2 is fitted on the dataset.
+```{r}
+poly_model <- lm(PovPct ~ poly(Brth15to17, 2) + poly(Brth18to19, 2) + 
+                   poly(ViolCrime, 2) + poly(TeenBrth, 2), data = poverty_df)
+summary(poly_model)
+```
+
+```{r}
+anova(poly_model)
+```
+The ANOVA results of the degree 2 polynomial suggests that `TeenBrth` and `Brth15to17` are significant.
+
+### Selecting the best fit polynomial function
+Each predictor is modeled with varying polynomial degrees ranging from 2 to 5. The performance of each model is evaluated using AIC, BIC and R² values
+```{r}
+degree_range <- 2:5
+
+degree_combinations <- expand.grid(
+  Brth15to17 = degree_range,
+  Brth18to19 = degree_range,
+  ViolCrime = degree_range,
+  TeenBrth = degree_range
+)
+# Store AIC values and R² values
+aic_values <- numeric(length(degree_range))
+bic_values <- numeric(length(degree_range))
+r2_values <- numeric(length(degree_range))
+
+# Loop through each degree
+for (i in 1:nrow(degree_combinations))  {
+
+  d1 <- degree_combinations$Brth15to17[i]
+d2 <- degree_combinations$Brth18to19[i]
+d3 <- degree_combinations$ViolCrime[i]
+d4 <- degree_combinations$TeenBrth[i]
+
+# Fit polynomial regression model with different degrees for each predictor
+model <- lm(PovPct ~ poly(Brth15to17, d1) + poly(Brth18to19, d2) +
+poly(ViolCrime, d3) + poly(TeenBrth, d4), data = poverty_df)
+
+
+
+  aic_values[i] <- AIC(model)
+  bic_values[i] <- BIC(model)
+  r2_values[i] <- summary(model)$r.squared
+}
+
+```
+
+```{r}
+
+# Find the best degree based on minimum AIC
+best_aic_index <- which.min(aic_values)
+best_aic_combination <- degree_combinations[best_aic_index, ]
+
+
+best_bic_index <- which.min(bic_values)
+best_bic_combination <- degree_combinations[best_bic_index, ]
+
+# Find the best degree based on maximum R²
+best_r2_index <- which.max(r2_values)
+best_r2_combination <- degree_combinations[best_r2_index, ]
+
+# Print results
+cat("Best polynomial based on AIC:", "\n")
+print(best_aic_combination)
+
+cat("Best polynomial based on BIC:", "\n")
+print(best_bic_combination)
+
+cat("Best polynomial based on R²:", "\n")
+print(best_r2_combination)
+```
+
+```{r}
+
+```
+- AIC-optimal model: Used polynomial degrees of 2 for `Brth15to17` and `ViolCrime`, 4 for `Brth18to19`, and 3 for `TeenBrth.` This model achieved an adjusted R² of 0.6197, improving upon the linear model.
+
+- R²-optimal model: Used 5th-degree polynomials for all predictors, which likely overfit the data but maximized the R² value.
+
+- BIC-optimal model: Used 2nd-degree polynomials for all predictors, providing a more parsimonious model than the AIC-optimal one.
+
+```{r}
+poverty_df <- poverty_df %>%
+  arrange(Location)
+
+# Fit the best model using AIC-optimal polynomial degrees
+best_aic_model <- lm(PovPct ~ poly(Brth15to17, best_aic_combination$Brth15to17) + 
+                       poly(Brth18to19, best_aic_combination$Brth18to19) + 
+                       poly(ViolCrime, best_aic_combination$ViolCrime) + 
+                       poly(TeenBrth, best_aic_combination$TeenBrth), 
+                     data = poverty_df)
+summary(best_aic_model)
+anova(best_aic_model)
+
+
+```
+
+The AIC-optimal model showed that several polynomial terms were significant, particularly for `Brth15to17` and `TeenBrth`, indicating that the relationship between these predictors and poverty is indeed non-linear.
+
+```{r}
+
+# Predict values using the best AIC model
+poverty_df$Predicted_AIC <- predict(best_aic_model, newdata = poverty_df)
+
+
+
+# Fit the best model using R²-optimal polynomial degrees
+best_r2_model <- lm(PovPct ~ poly(Brth15to17, best_r2_combination$Brth15to17) + 
+                      poly(Brth18to19, best_r2_combination$Brth18to19) + 
+                      poly(ViolCrime, best_r2_combination$ViolCrime) + 
+                      poly(TeenBrth, best_r2_combination$TeenBrth), 
+                    data = poverty_df)
+
+# Predict values using the best R² model
+poverty_df$Predicted_R2 <- predict(best_r2_model, newdata = poverty_df)
+```
+
+
+```{r}
+
+# Plot the predicted values of best AIC and best R² model
+plot_data <- poverty_df %>%
+  select(Location, PovPct, Predicted_AIC, Predicted_R2) %>%
+  pivot_longer(cols = c(PovPct, Predicted_AIC, Predicted_R2), names_to = "Type", values_to = "Value")
+
+options(repr.plot.width=15, repr.plot.height=7)
+
+ggplot(plot_data, aes(x = Location, y = Value, color = Type, group = Type)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_line(size = 1) +
+  scale_color_manual(values = c("PovPct" = "#1D3557",
+                                "Predicted_AIC" = "#E63946",
+                                "Predicted_R2" = "#2A9D8F"),
+                     labels = c("Actual", "Predicted (AIC)", "Predicted (R²)")) +
+  theme_minimal() +
+  labs(title = "Actual vs. Predicted Poverty Percentage by Location",
+       x = "Location",
+       y = "Poverty Percentage",
+       color = "Legend") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 6))
+
+```
+
+### Using splines with varying knots
+
+Spline models with 3 and 4 knots at different quantiles of the predictor variables are trained on the dataset.
+
+#### Spline model with 3 knots
+```{r}
+
+# Spline model with 3 knots
+spline_model_3k <- lm(PovPct~ bs(Brth15to17, knots = quantile(poverty_df$Brth15to17, probs = c(0.25, 0.5, 0.75))) + 
+                        bs(Brth18to19 , knots = quantile(poverty_df$Brth18to19 , probs = c(0.25, 0.5, 0.75))) + 
+                        bs(ViolCrime , knots = quantile(poverty_df$ViolCrime , probs = c(0.25, 0.5, 0.75)))+
+                        bs(TeenBrth , knots = quantile(poverty_df$TeenBrth , probs = c(0.25, 0.5, 0.75))),
+                      data = poverty_df)
+
+# Summary of spline model
+summary(spline_model_3k)
+
+poverty_df$Spline_3k_Predicted <- predict(spline_model_3k)
+
+```
+
+#### Spline model with 4 knots
+```{r}
+# Spline model with 3 knots
+spline_model_4k <- lm(PovPct~ bs(Brth15to17, knots = quantile(poverty_df$Brth15to17, probs = c(0.25, 0.5, 0.75, 0.95))) + 
+                        bs(Brth18to19 , knots = quantile(poverty_df$Brth18to19 , probs = c(0.25, 0.5, 0.75, 0.95))) + 
+                        bs(ViolCrime , knots = quantile(poverty_df$ViolCrime , probs = c(0.25, 0.5, 0.75, 0.95)))+
+                        bs(TeenBrth , knots = quantile(poverty_df$TeenBrth , probs = c(0.25, 0.5, 0.75, 0.95))),
+                      data = poverty_df)
+
+# Summary of spline model
+summary(spline_model_4k)
+
+poverty_df$Spline_4k_Predicted <- predict(spline_model_4k)
+```
+### Plot of actual vs. predicted values using splines
+```{r}
+
+
+# Arrange data by location 
+poverty_df <- poverty_df %>%
+  arrange(Location)
+
+plot_data <- poverty_df %>%
+  select(Location, PovPct, Spline_3k_Predicted, Spline_4k_Predicted) %>%
+  pivot_longer(cols = c(PovPct,Spline_3k_Predicted,Spline_4k_Predicted ),
+               names_to = "Type", 
+               values_to = "Value")
+
+
+# Create the plot
+ggplot(plot_data, aes(x = Location, y = Value, color = Type, group = Type)) +
+  geom_point(size = 3, alpha = 0.8) +  # Scatter points
+  geom_line(size = 1) +  # Connecting lines
+  scale_color_manual(values = c("PovPct" = "#1D3557",        # Actual values
+                                "Spline_3k_Predicted" = "#E63946", # Predicted 
+                                 "Spline_4k_Predicted" = "#2A9D8F"),
+                     labels = c("Actual", "Spline Predicted(3k)", "Spline Predicted(4k)")) +
+  theme_minimal() +
+  labs(title = "Actual vs. Spline Predicted Poverty Percentage by Location",
+       x = "Location",
+       y = "Poverty Percentage",
+       color = "Legend") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 6))  # Rotate x-axis labels
+```
+
+```{r}
+
+# Print results
+cat("AIC:", AIC(spline_model_3k), "\n")
+cat("BIC:", BIC(spline_model_3k), "\n")
+cat("R²:",  summary(spline_model_3k)$r.squared, "\n")
+
+```
+
+
+### Using Generalized Additive Model
+```{r}
+# Fit a Generalized Additive Model (GAM)
+gam_model <- gam(PovPct ~ s(Brth15to17) + s(Brth18to19) + s(ViolCrime) + s(TeenBrth), data = poverty_df)
+
+summary(gam_model)
+par(mfrow=c(2,2))
+# Visualization of GAM effects
+plot(gam_model)
+
+
+AIC(lm_model, poly_model, spline_model_3k, spline_model_4k,gam_model)
+BIC(lm_model, poly_model, spline_model_3k, spline_model_4k,gam_model)
+
+```
+
+### Results
+```{r}
+model_metrics <- data.frame(
+  Model = c("Linear Regression", "Polynomial Regression", "Best AIC Model", 
+            "Best R² Model", "Spline (3 Knots)", "Spline (4 Knots)", "GAM"),
+  AIC = c(AIC(lm_model), AIC(poly_model), AIC(best_aic_model), 
+          AIC(best_r2_model), AIC(spline_model_3k), AIC(spline_model_4k), AIC(gam_model)),
+  BIC = c(BIC(lm_model), BIC(poly_model), BIC(best_aic_model), 
+          BIC(best_r2_model), BIC(spline_model_3k), BIC(spline_model_4k), BIC(gam_model)),
+  Adjusted_R2 = c(summary(lm_model)$adj.r.squared, summary(poly_model)$adj.r.squared, 
+                  summary(best_aic_model)$adj.r.squared, summary(best_r2_model)$adj.r.squared, 
+                  summary(spline_model_3k)$adj.r.squared, summary(spline_model_4k)$adj.r.squared, 
+                  summary(gam_model)$r.sq)
+)
+
+# Print the data frame
+print(model_metrics)
+```
+- The Generalized Additive Model (GAM) has the lowest AIC (254.2793) and BIC (269.4333), indicating it is the most parsimonious model with the best balance of goodness-of-fit and complexity.
+
+- The AIC-optimal polynomial model with polynomial degrees (2, 4, 2, 3) for predictors achieved an adjusted R² of 0.6197, outperforming the linear model.
+
+- The polynomial model with best AIC achieves the highest adjusted R² (0.6197399), indicating it explains the largest proportion of variance in the data while accounting for model complexity.
+
+- The Linear Regression model has a decent performance with an adjusted R² of ~0.58, but non-linear models like GAM and Best AIC Model outperform it in terms of both adjusted R² and AIC/BIC.
+
+- Both spline models (3 knots and 4 knots) perform poorly compared to other models, with higher AIC/BIC values and lower adjusted R² values.
+
+
+### Conclusion
+The analysis demonstrates that non-linear relationships exist between poverty percentage (`PovPct`) and predictors like `TeenBrth` and `Brth18to19.` Among all tested models, GAM emerges as the best-performing model overall, combining flexibility with strong predictive power while avoiding overfitting.
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+

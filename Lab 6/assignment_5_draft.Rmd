@@ -1,0 +1,22 @@
+---
+title: "Assignment 5"
+author: "Ben Abraham Biju"
+date: "2025-02-11"
+output: html_document
+---
+
+### 1.	Load the dataset “Cellphone.csv”. Display first few rows of the dataset
+
+We begin by reading the *Cellphone.csv* file and displaying its first few rows. Make sure the CSV file is in your working directory.
+
+
+### 2.	Perform preliminary analysis to show how the variables are related to each other. Use scatter plot, box plot etc. to visualize how different variables impact the “Price” variable, which is the response variable. 
+### 3.	Perform best subset selection on this dataset, (dropping the Product_id variable). Explain the results. 
+
+### 4.	Create a plot with Cp on y-axis and number of variables on the x-axis. Determine the lowest Cp and report how many variables are included in the lowest Cp model.
+
+### 5.	Plot the best subset selection output and explain the plot. 
+
+### 6.	Use principal component regression on the same dataset with 5 components and 7 components. How much variability is explained by these two models? 
+
+### 7.	Perform Lasso on the model and explain the results. 
