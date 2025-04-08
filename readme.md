@@ -287,3 +287,26 @@
   xlab = "Mean", breaks = 10)
 - hist(boot.vars, col = "lightgreen", main = "Bootstrap Distribution of Variance",
   xlab = "Variance", breaks = 10)
+
+## Trees
+
+#Training the decision tree model
+
+- tree.heart <- rpart(y ~ sbp + tobacco + ldl + adiposity + factor(famhist) + typea + obesity + alcohol + age,
+  data = train,
+  method = "class")
+
+- summary(tree.heart)
+- rpart.plot(tree.heart, cex = 0.6)
+
+#Confusion Matrix
+
+- ypred <- predict(tree.heart, test, type = 'class')
+- table(predict = ypred, truth = test$y)
+
+- library(MLmetrics) # calculate performance metrics
+- ConfusionMatrix(ypred, test$y)
+- Accuracy(ypred, test$y)
+- Precision(ypred, test$y)
+- Recall(ypred, test$y)
+- F1_Score(ypred, test$y)
