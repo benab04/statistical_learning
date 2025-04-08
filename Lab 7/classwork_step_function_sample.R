@@ -9,6 +9,7 @@ max(Wage$age)
 # Create age categories (step function bins)
 Wage$age_cat <- cut(Wage$age, breaks = c(0, 25, 40, 55, 70))
 
+print(Wage$age_cat)
 # Fit a linear regression model with age categories
 model <- lm(wage ~ age_cat, data = Wage)
 

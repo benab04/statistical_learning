@@ -30,7 +30,7 @@ qqnorm(residuals, main = "Q-Q Plot of Residuals")  # Q-Q plot
 qqline(residuals, col = "blue", lwd = 1)           # normality line
 
 par(mfrow = c(2,2))
-plot(model)
+plot(model1)
 par(mfrow = c(1, 1))
 
 qqline(residuals)

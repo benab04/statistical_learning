@@ -90,10 +90,12 @@ pred = predict(fit, newdata = data.frame(Age = age_grid), se = TRUE)
 se_bands = with(pred, cbind("upper" = fit + 2 * se.fit,
                             "lower" = fit - 2 * se.fit))
 
+# se_bands = cbind("upper" = pred$fit + 2*pred$se.fit,
+#                  "lower" = pred$fit - 2*pred$se.fit)
 # Create a data frame for plotting
 plot_data <- data.frame(
   Age = age_grid,
-  Fit = pred$fit,
+  Fit = with(pred, fit),
   Lower = se_bands[, "lower"],
   Upper = se_bands[, "upper"]
 )

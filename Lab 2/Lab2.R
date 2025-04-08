@@ -24,12 +24,13 @@ confint(m1) # Confidence interval of the beta values
 
 #Forward selection
 null_model <- lm(mpg ~ 1, data=mtcars)
+full_model <- lm(mpg ~. , data = mtcars)
 summary(null_model)
-fwd <- step(null_model, direction = "forward", data=mtcars)
+fwd <- step(null_model, direction = "forward",   scope = formula(full_model))
 summary(fwd)
 
 #Backward selection
-full_model <- lm(mpg ~. , data = mtcars)
+
 summary(full_model)
 
 bwd <- step(full_model, direction = "backward", data=mtcars)
