@@ -14,6 +14,7 @@
 
 ## Basic operations
 
+- dim(data)
 - nrow(data)
 - str(mtcars) # get structure
 - is.na(airquality$Ozone)
@@ -46,6 +47,13 @@
 
 - ggpairs(diabetes[, -9], aes(color = diabetes$Outcome, alpha = 0.5)) +
   ggtitle("Pairs Plot of Diabetes Variables")
+
+#combined scatter plots for multiple classes
+
+- pairs(diabetes[,-9],
+  col=diabetes$Outcome + 1,
+  pch=16,
+  main="Scatterplot Matrix of all Variables")
 
 #### box plots
 
@@ -166,3 +174,116 @@
   color = "Outcome") +
   scale_color_manual(values = c("Non-Diabetic" = "blue", "Diabetic" = "red")) +
   theme_minimal()
+
+### QDA Model
+
+- qda_model <- qda(Outcome ~ ., data = train)
+- qda_pred <- predict(qda_model, newdata = test)
+
+- confusion_qda <- confusionMatrix(qda_pred$class, test$Outcome, positive ="Diabetic")
+
+### KNN model
+
+- train_scale <- scale(train[, -9])
+- test_scale <- scale(test[, -9])
+
+- knn_pred <- knn(train_scale, test_scale,
+  cl = train$Outcome, k = 5)
+
+- confusion_knn <- confusionMatrix(knn_pred, test$Outcome, positive ="Diabetic")
+
+##### Selecting best K
+
+- set.seed(42)
+- k_to_try = 1: 100
+- acc_k = rep(x=0, times=length(k_to_try))
+
+- for(i in seq_along(k_to_try)){
+  pred=knn(train = scale(X_default_train),
+  test = scale(X_default_test),
+  cl = y_default_train,
+  k = k_to_try[i]
+  )
+  cm= confusionMatrix(pred, y_default_test)
+  acc_k[i] = cm$overall["Accuracy"]
+  }
+
+- max_accuracy <- max(acc_k)
+- best_k <- k_to_try[which.max(acc_k)]
+
+- plot(k_to_try, acc_k, type = "b", col = "blue", pch = 19,
+  xlab = "Number of Neighbors (k)", ylab = "Accuracy",
+  main = "Accuracy vs k in k-NN")
+- abline(v = best_k, col = "red", lty = 2) # Add vertical line at best_k
+- text(best_k, max_accuracy,
+  labels = paste("Best k =", best_k), pos = 3, col = "red")
+
+#### Metrics
+
+- metrics <- data.frame(
+  Model = c("LDA", "QDA", "KNN (k=5)"),
+  Accuracy = c(accuracy_lda,
+  confusion_qda$overall['Accuracy'],
+               confusion_knn$overall['Accuracy']),
+  F1_Score = c(f1_lda,
+  confusion_qda$byClass['F1'],
+               confusion_knn$byClass['F1'])
+  )
+
+## Cross Validation
+
+- degrees <- 1:5
+- cv.error.loocv <- rep(0, length(degrees))
+- cv.error.5fold <- rep(0, length(degrees))
+- cv.error.10fold <- rep(0, length(degrees))
+
+- for (i in degrees) {
+
+  - glm.fit <- glm(Quality ~ poly(Temperature, i, raw = TRUE), data = data_sample)
+    #LOOCV
+  - cv.loocv <- cv.glm(data_sample, glm.fit, K = nrow(data_sample))
+  - cv.error.loocv[i] <- cv.loocv$delta[1]
+    #5-fold CV
+  - cv.5 <- cv.glm(data_sample, glm.fit, K = 5)
+    cv.error.5fold[i] <- cv.5$delta[1]
+    #10-fold CV
+  - cv.10 <- cv.glm(data_sample, glm.fit, K = 10)
+  - cv.error.10fold[i] <- cv.10$delta[1]
+
+  }
+
+- poly.cv.results <- data.frame(
+  Degree = degrees,
+  LOOCV_MSE = cv.error.loocv,
+  CV5_MSE = cv.error.5fold,
+  CV10_MSE = cv.error.10fold
+  )
+
+### Bootstrapping
+
+- set.seed(789)
+- pop_sample <- rnorm(50, mean = 50, sd = sqrt(2))
+
+- n_boot <- 100
+- boot_sample_size <- 20
+
+- boot.means <- rep(0, n_boot)
+- boot.vars <- rep(0, n_boot)
+
+- set.seed(456)
+
+- for (i in 1:n_boot) {
+
+  - boot.sample <- sample(pop_sample, size = boot_sample_size, replace = TRUE)
+  - boot.means[i] <- mean(boot.sample)
+  - boot.vars[i] <- var(boot.sample)
+    }
+
+- boot.mean.estimate <- mean(boot.means)
+- boot.var.estimate <- mean(boot.vars)
+
+- par(mfrow = c(1,2))
+- hist(boot.means, col = "lightblue", main = "Bootstrap Distribution of Mean",
+  xlab = "Mean", breaks = 10)
+- hist(boot.vars, col = "lightgreen", main = "Bootstrap Distribution of Variance",
+  xlab = "Variance", breaks = 10)
